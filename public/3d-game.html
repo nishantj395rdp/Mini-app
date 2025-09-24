@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Grow Spark AI 3D Mining World</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #1a1a1a;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    canvas { display: block; }
+    #ui-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+    #header {
+      position: absolute;
+      top: 10px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px 20px;
+      border-radius: 20px;
+      border: 2px solid #4caf50;
+      pointer-events: all;
+    }
+    #points {
+      font-size: 24px;
+      color: #ffd700;
+      margin: 0;
+    }
+    #tapButton {
+      position: absolute;
+      bottom: 20px; left: 50%;
+      transform: translateX(-50%);
+      padding: 15px 30px;
+      background: linear-gradient(45deg, #4caf50, #45a049);
+      color: white;
+      border: none;
+      border-radius: 30px;
+      font-size: 18px;
+      cursor: pointer;
+      pointer-events: all;
+      box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    }
+    #tapButton:hover {
+      background: linear-gradient(45deg, #45a049, #4caf50);
+      transform: translateX(-50%) scale(1.05);
+    }
+    #mission-popup, #referral-popup {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      padding: 20px;
+      border-radius: 15px;
+      border: 2px solid #4caf50;
+      pointer-events: all;
+      display: none;
+      text-align: center;
+    }
+    .popup-btn {
+      padding: 10px 20px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    #loading {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #4caf50;
+      font-size: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui-overlay">
+    <div id="header">
+      <h2>Grow Spark AI</h2>
+      <div id="points">Points: <span id="pointValue">0</span></div>
+    </div>
+    <button id="tapButton">Tap to Mine</button>
+
+    <div id="mission-popup">
+      <h3>Mission: Join Channel</h3>
+      <p>Reward: 200 Points</p>
+      <button class="popup-btn" onclick="claimMission(200)">Claim</button>
+      <button class="popup-btn" onclick="closePopup()">Close</button>
+    </div>
+
+    <div id="referral-popup">
+      <h3>Referral Link</h3>
+      <p id="referral-text">Loading...</p>
+      <p>Reward: 10% of friends' points</p>
+      <button class="popup-btn" onclick="closePopup()">Close</button>
+    </div>
+  </div>
+
+  <div id="loading">Loading 3D World...</div>
+
+  <script>
+    let points = 0;
+    let scene, camera, renderer, minerGroup, particles = [];
+    let raycaster, mouse;
+
+    Telegram.WebApp.ready();
+    Telegram.WebApp.MainButton
+      .setText('Claim Points')
+      .onClick(claimPoints)
+      .show();
+
+    // Init 3D World
+    function init3D() {
+      const container = document.body;
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x1a1a1a);
+
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+
+      // Lights
+      scene.add(new THREE.AmbientLight(0x404040, 0.6));
+      const directionalLight = new THREE.DirectionalLight(0x4caf50, 1);
+      directionalLight.position.set(0, 10, 5);
+      scene.add(directionalLight);
+
+      // Mining rigs
+      minerGroup = new THREE.Group();
+      const minerGeometry = new THREE.BoxGeometry(2, 1, 1);
+      const minerMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+      for (let i = 0; i < 5; i++) {
+        const miner = new THREE.Mesh(minerGeometry, minerMaterial);
+        miner.position.set(i * 3 - 6, 0, 0);
+        minerGroup.add(miner);
+      }
+      scene.add(minerGroup);
+
+      // Camera controls
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+
+      camera.position.z = 10;
+      mouse = new THREE.Vector2();
+
+      animate();
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      minerGroup.rotation.y += 0.01;
+      if (Math.random() < 0.1) createParticle();
+      updateParticles();
+      renderer.render(scene, camera);
+    }
+
+    function createParticle() {
+      const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+      const material = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+      const particle = new THREE.Mesh(geometry, material);
+      particle.position.set(Math.random() * 10 - 5, Math.random() * 5, Math.random() * 5 - 5);
+      scene.add(particle);
+      particles.push({ mesh: particle, life: 100 });
+      particle.userData = { velocity: new THREE.Vector3(Math.random() - 0.5, 0.5, Math.random() - 0.5) };
+    }
+
+    function updateParticles() {
+      particles.forEach((p, index) => {
+        p.life--;
+        p.mesh.position.add(p.mesh.userData.velocity);
+        p.mesh.scale.multiplyScalar(0.99);
+        if (p.life <= 0) {
+          scene.remove(p.mesh);
+          particles.splice(index, 1);
+        }
+      });
+    }
+
+    // Click mining
+    function onMouseClick(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(minerGroup.children);
+      if (intersects.length > 0) {
+        points += 20;
+        document.getElementById('pointValue').innerText = points;
+        createParticleExplode(intersects[0].point);
+      }
+    }
+
+    function createParticleExplode(position) {
+      for (let i = 0; i < 10; i++) {
+        const geometry = new THREE.SphereGeometry(0.05, 4, 4);
+        const material = new THREE.MeshBasicMaterial({ color: 0x4caf50 });
+        const particle = new THREE.Mesh(geometry, material);
+        particle.position.copy(position);
+        scene.add(particle);
+        particles.push({ mesh: particle, life: 60 });
+        particle.userData = { velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 2,
+          Math.random() * 2,
+          (Math.random() - 0.5) * 2
+        ) };
+      }
+    }
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Missions & referrals
+    function showMissionPopup() {
+      document.getElementById('mission-popup').style.display = 'block';
+    }
+
+    function showReferralPopup() {
+      const userId = Telegram.WebApp.initDataUnsafe.user?.id || 'YOUR_ID';
+      const botName = Telegram.WebApp.initDataUnsafe?.bot_username || 'GrowSparkbot';
+      document.getElementById('referral-text').innerText =
+        `Share: t.me/${botName}?start=${userId}`;
+      document.getElementById('referral-popup').style.display = 'block';
+    }
+
+    function closePopup() {
+      document.getElementById('mission-popup').style.display = 'none';
+      document.getElementById('referral-popup').style.display = 'none';
+    }
+
+    function claimMission(amount) {
+      points += amount;
+      document.getElementById('pointValue').innerText = points;
+      closePopup();
+      alert(`Mission claimed! +${amount} points`);
+    }
+
+    // Auto-mining
+    setInterval(() => {
+      points += 5;
+      document.getElementById('pointValue').innerText = points;
+      createParticle();
+    }, 5000);
+
+    // Telegram integration
+    function claimPoints() {
+      Telegram.WebApp.sendData(JSON.stringify({ action: 'claim', points }));
+      Telegram.WebApp.close();
+    }
+
+    // Events
+    document.getElementById('tapButton').addEventListener('click', () => {
+      points += 10;
+      document.getElementById('pointValue').innerText = points;
+      createParticle();
+    });
+    window.addEventListener('click', onMouseClick);
+    window.addEventListener('resize', onResize);
+
+    // Start
+    init3D();
+  </script>
+</body>
+</html>
