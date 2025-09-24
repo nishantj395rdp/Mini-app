@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><title>Grow Spark AI Admin</title></head>
+<body>
+  <h1>Grow Spark AI Users Dashboard</h1>
+  <table border="1">
+    <tr><th>ID</th><th>Username</th><th>Points</th><th>Referrals</th><th>Last Farm</th><th>Actions</th></tr>
+    <% users.forEach(user => { %>
+      <tr>
+        <td><%= user.telegram_id %></td>
+        <td><%= user.username %></td>
+        <td><%= user.points %></td>
+        <td><%= user.referrals %></td>
+        <td><%= user.last_farm %></td>
+        <td><form method="POST" action="/admin/auto-farm/<%= user.telegram_id %>"><button type="submit">Auto-Farm +1000</button></form></td>
+      </tr>
+    <% }); %>
+  </table>
+  <a href="/admin/logout">Logout</a>
+</body>
+</html>
